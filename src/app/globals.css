@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --primary: #1e40af;
+  --secondary: #0891b2;
+  --accent: #f59e0b;
+}
+.dark .filter-white {
+  filter: invert(1) sepia(1) saturate(0) hue-rotate(0deg) brightness(97%)
+    contrast(98%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #e2e8f0;
+    --primary: #93c5fd;
+    --secondary: #67e8f9;
+    --accent: #fcd34d;
+  }
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Scrollbar - Light Mode */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Custom Scrollbar - Dark Mode */
+.dark ::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-color: #0a0a0a;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.dark * {
+  scrollbar-color: #333333 #0a0a0a;
+}
+
+@media (min-width: 360px) {
+  .smm\:flex-row {
+    flex-direction: row;
+  }
+}
+@media (min-width: 1431px) and (max-width: 1535px) {
+  .element {
+    /* Your styles here */
+    top: 245px;
+  }
+}
+@media (min-width: 1431px) and (max-width: 1535px) {
+  .element2 {
+    /* Your styles here */
+    bottom: -140px;
+  }
+}
+
+@media (min-width: 1431px) {
+  .element2 {
+    /* Your styles here */
+    bottom: -140px;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1280px) {
+  .element3 {
+    /* Your styles here */
+    bottom: -120px;
+    top: 323px;
+  }
+}
+
+@media (min-width: 897px) and (max-width: 2000px) {
+  .element4 {
+    /* Your styles here */
+    min-height: 0;
+  }
+}
+@media (min-width: 1103px) and (max-width: 2000px) {
+  .element5 {
+    /* Your styles here */
+    bottom: -130px !important;
+  }
+}
+
+/* Code Block Styling */
+.prose pre {
+  @apply bg-slate-900 dark:bg-slate-950 rounded-lg overflow-x-auto;
+}
+
+.prose code {
+  @apply text-sm font-mono;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0 text-slate-50;
+}
+
+.prose :not(pre) > code {
+  @apply px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-pink-600 dark:text-pink-400 font-mono text-sm;
+}
+
+/* Markdown Content Styling */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  @apply font-bold text-light-onBackground dark:text-dark-onBackground;
+}
+
+.prose p {
+  @apply text-light-onSurface dark:text-dark-onSurface mb-4;
+}
+
+.prose ul,
+.prose ol {
+  @apply text-light-onSurface dark:text-dark-onSurface ml-6 mb-4;
+}
+
+.prose strong {
+  @apply text-light-onBackground dark:text-dark-onBackground font-bold;
+}
+
+.prose a {
+  @apply text-light-primary dark:text-dark-primary hover:underline;
+}
+
+/* Hide scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

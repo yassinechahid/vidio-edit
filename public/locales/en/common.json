@@ -1,0 +1,19 @@
+{
+  "languages": {
+    "en": "English",
+    "fr": "French",
+    "ar": "Arabic"
+  },
+  "nav": {
+    "name": "Your Name",
+    "role": "Your Role",
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "drawerNav": {
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact"
+  }
+}
