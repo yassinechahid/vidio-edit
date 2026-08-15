@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { FileAudio2, Film, ImageIcon, Plus, UploadCloud } from "lucide-react";
 import type { MediaAsset } from "@/types/editor";
 import { formatTime } from "@/utils/time";
@@ -43,7 +44,7 @@ export function MediaPanel({ assets, importFiles, isImporting, error, onAddToTim
             onDragStart={(event) => { event.dataTransfer.setData("application/x-framecraft-asset", asset.id); event.dataTransfer.effectAllowed = "copy"; }}
           >
             <div className="asset-thumbnail">
-              {asset.kind === "image" && <img src={asset.url} alt="" />}
+              {asset.kind === "image" && <Image src={asset.url} alt="" fill sizes="96px" unoptimized />}
               {asset.kind === "video" && <video src={asset.url} muted preload="metadata" />}
               {asset.kind === "audio" && <FileAudio2 size={26} />}
               <span>{asset.kind === "video" ? <Film size={11} /> : asset.kind === "image" ? <ImageIcon size={11} /> : <FileAudio2 size={11} />}{asset.duration > 0 && formatTime(asset.duration).slice(0, 5)}</span>
@@ -56,4 +57,3 @@ export function MediaPanel({ assets, importFiles, isImporting, error, onAddToTim
     </section>
   );
 }
-

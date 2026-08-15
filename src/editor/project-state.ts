@@ -1,4 +1,4 @@
-import type { EditorProject, MediaAsset, TimelineClip } from "@/types/editor";
+import type { EditorProject, MediaAsset, TimelineClip, TimelineTrack } from "@/types/editor";
 
 export const initialProject: EditorProject = {
   id: "local-project",
@@ -17,6 +17,9 @@ export const initialProject: EditorProject = {
 export type ProjectAction =
   | { type: "add-assets"; assets: MediaAsset[] }
   | { type: "add-clip"; clip: TimelineClip }
+  | { type: "update-clip"; clipId: string; changes: Partial<TimelineClip> }
+  | { type: "delete-clip"; clipId: string }
+  | { type: "replace-tracks"; tracks: TimelineTrack[] }
   | { type: "set-name"; name: string }
   | { type: "set-aspect-ratio"; value: EditorProject["aspectRatio"] }
   | { type: "set-resolution"; value: EditorProject["resolution"] };
@@ -34,6 +37,26 @@ export function projectReducer(project: EditorProject, action: ProjectAction): E
             : track,
         ),
       };
+    case "update-clip":
+      return {
+        ...project,
+        tracks: project.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === action.clipId ? { ...clip, ...action.changes } : clip,
+          ),
+        })),
+      };
+    case "delete-clip":
+      return {
+        ...project,
+        tracks: project.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.filter((clip) => clip.id !== action.clipId),
+        })),
+      };
+    case "replace-tracks":
+      return { ...project, tracks: action.tracks };
     case "set-name":
       return { ...project, name: action.name };
     case "set-aspect-ratio":
@@ -42,4 +65,3 @@ export function projectReducer(project: EditorProject, action: ProjectAction): E
       return { ...project, resolution: action.value };
   }
 }
-

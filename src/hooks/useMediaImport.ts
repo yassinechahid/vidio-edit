@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MediaAsset, MediaKind } from "@/types/editor";
+import { saveMediaBlob } from "@/editor/persistence";
 
 const ACCEPTED_TYPES = [
   "video/mp4", "video/webm", "video/quicktime", "audio/mpeg", "audio/wav",
@@ -60,9 +61,16 @@ export function useMediaImport(onImported: (assets: MediaAsset[]) => void) {
   const importFiles = useCallback(async (files: FileList | File[]) => {
     setIsImporting(true);
     setError(null);
-    const results = await Promise.allSettled(Array.from(files).map(inspectFile));
+    const fileArray = Array.from(files);
+    const results = await Promise.allSettled(fileArray.map(inspectFile));
     const assets = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
     const failures = results.flatMap((result) => result.status === "rejected" ? [String(result.reason)] : []);
+    const persistenceResults = await Promise.allSettled(results.map((result, index) =>
+      result.status === "fulfilled" ? saveMediaBlob(result.value.id, fileArray[index]) : Promise.resolve(),
+    ));
+    if (persistenceResults.some((result) => result.status === "rejected")) {
+      failures.push("Some media could not be saved for the next browser session");
+    }
     urls.current.push(...assets.map((asset) => asset.url));
     if (assets.length) onImported(assets);
     if (failures.length) setError(failures.join(". "));
@@ -73,4 +81,3 @@ export function useMediaImport(onImported: (assets: MediaAsset[]) => void) {
 
   return { importFiles, isImporting, error };
 }
-
