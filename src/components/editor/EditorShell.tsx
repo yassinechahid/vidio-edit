@@ -5,19 +5,20 @@ import type { MediaAsset, TimelineTrack } from "@/types/editor";
 import { defaultClipStyle } from "@/editor/clip-style";
 import { useMediaImport } from "@/hooks/useMediaImport";
 import { useEditorHistory } from "@/hooks/useEditorHistory";
-import { loadPersistedProject, loadSelectedClipId, saveProjectMetadata, saveSelectedClipId } from "@/editor/persistence";
+import { loadActiveTool, loadPersistedProject, loadSelectedClipId, saveActiveTool, saveProjectMetadata, saveSelectedClipId } from "@/editor/persistence";
 import { extendLoopingAudioToVideoEnd, rippleDeleteRange } from "@/utils/timeline-operations";
 import { Inspector } from "./Inspector";
 import { MusicVideoStudio } from "./MusicVideoStudio";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { Timeline } from "./Timeline";
 import { ToolPanel, type LayerDraft } from "./ToolPanel";
-import { ToolSidebar, type ToolId } from "./ToolSidebar";
+import { ToolSidebar, tools, type ToolId } from "./ToolSidebar";
 import { TopBar } from "./TopBar";
 
 export function EditorShell() {
   const { project, dispatch, undo, redo, restore, canUndo, canRedo } = useEditorHistory();
   const [activeTool, setActiveTool] = useState<ToolId>("media");
+  const [toolHydrated, setToolHydrated] = useState(false);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -30,6 +31,16 @@ export function EditorShell() {
 
   const handleImported = useCallback((assets: MediaAsset[]) => dispatch({ type: "add-assets", assets }), [dispatch]);
   const mediaImport = useMediaImport(handleImported);
+
+  useEffect(() => {
+    const storedTool = loadActiveTool();
+    if (storedTool && tools.some((tool) => tool.id === storedTool)) setActiveTool(storedTool as ToolId);
+    setToolHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (toolHydrated) saveActiveTool(activeTool);
+  }, [activeTool, toolHydrated]);
 
   useEffect(() => {
     let cancelled = false;

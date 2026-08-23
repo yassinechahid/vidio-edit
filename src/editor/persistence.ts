@@ -4,9 +4,20 @@ const PROJECT_KEY = "framecraft-project-v1";
 const SELECTION_KEY = "framecraft-selection-v1";
 const DATABASE_NAME = "framecraft-media";
 const MEDIA_STORE = "media-files";
+const MUSIC_VIDEO_SETTINGS_KEY = "framecraft-music-video-v1";
+const MUSIC_VIDEO_AUDIO_KEY = "music-video-current-audio-v1";
+const ACTIVE_TOOL_KEY = "framecraft-active-tool-v1";
 
 type StoredAsset = Omit<MediaAsset, "url">;
 type StoredProject = Omit<EditorProject, "assets"> & { assets: StoredAsset[] };
+
+export type PersistedMusicVideoSettings = {
+  fileName: string;
+  aspectRatio: string;
+  templateId: string;
+  volume: number;
+  currentTime: number;
+};
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -47,6 +58,44 @@ async function loadMediaBlob(assetId: string): Promise<Blob | undefined> {
   } finally {
     database.close();
   }
+}
+
+export function saveMusicVideoSettings(settings: PersistedMusicVideoSettings): void {
+  localStorage.setItem(MUSIC_VIDEO_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function loadMusicVideoSettings(): PersistedMusicVideoSettings | null {
+  const raw = localStorage.getItem(MUSIC_VIDEO_SETTINGS_KEY);
+  if (!raw) return null;
+  try {
+    const settings = JSON.parse(raw) as Partial<PersistedMusicVideoSettings>;
+    if (typeof settings.fileName !== "string" || typeof settings.aspectRatio !== "string" || typeof settings.templateId !== "string") return null;
+    return {
+      fileName: settings.fileName,
+      aspectRatio: settings.aspectRatio,
+      templateId: settings.templateId,
+      volume: typeof settings.volume === "number" ? settings.volume : 0.85,
+      currentTime: typeof settings.currentTime === "number" ? settings.currentTime : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveMusicVideoAudio(blob: Blob): Promise<void> {
+  return saveMediaBlob(MUSIC_VIDEO_AUDIO_KEY, blob);
+}
+
+export function loadMusicVideoAudio(): Promise<Blob | undefined> {
+  return loadMediaBlob(MUSIC_VIDEO_AUDIO_KEY);
+}
+
+export function saveActiveTool(tool: string): void {
+  localStorage.setItem(ACTIVE_TOOL_KEY, tool);
+}
+
+export function loadActiveTool(): string | null {
+  return localStorage.getItem(ACTIVE_TOOL_KEY);
 }
 
 export function saveProjectMetadata(project: EditorProject): void {
