@@ -8,6 +8,7 @@ import { useEditorHistory } from "@/hooks/useEditorHistory";
 import { loadPersistedProject, loadSelectedClipId, saveProjectMetadata, saveSelectedClipId } from "@/editor/persistence";
 import { extendLoopingAudioToVideoEnd, rippleDeleteRange } from "@/utils/timeline-operations";
 import { Inspector } from "./Inspector";
+import { MusicVideoStudio } from "./MusicVideoStudio";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { Timeline } from "./Timeline";
 import { ToolPanel, type LayerDraft } from "./ToolPanel";
@@ -178,15 +179,17 @@ export function EditorShell() {
   }, [currentTime, dispatch]);
 
   return (
-    <main className="editor-shell p-4" dir="ltr">
+    <main className={`editor-shell p-4 ${activeTool === "music-video" ? "music-video-mode" : ""}`} dir="ltr">
       <TopBar project={project} saveStatus={saveStatus} canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} onNameChange={(name) => dispatch({ type: "set-name", name })} onAspectRatioChange={(value) => dispatch({ type: "set-aspect-ratio", value })} onResolutionChange={(value) => dispatch({ type: "set-resolution", value })} />
       <div className="editor-workspace">
         <ToolSidebar active={activeTool} onChange={setActiveTool} />
-        <ToolPanel activeTool={activeTool} assets={project.assets} {...mediaImport} selectedClip={selectedClip} onAddToTimeline={(asset) => addAssetToTrack(asset)} onCreateLayer={createLayer} onUpdateClip={(changes) => selectedClipId && dispatch({ type: "update-clip", clipId: selectedClipId, changes })} />
-        <PreviewCanvas asset={activeMediaAsset} clip={activeMediaClip} audioTracks={audioTracks} layers={visibleLayers} selectedClipId={selectedClipId} currentTime={currentTime} duration={duration} isPlaying={isPlaying} aspectRatio={project.aspectRatio} onPlayingChange={setIsPlaying} onTimeChange={(time) => setCurrentTime(Math.min(duration, Math.max(0, time)))} onSelectLayer={setSelectedClipId} onUpdateLayer={(clipId, changes) => dispatch({ type: "update-clip", clipId, changes })} />
-        <Inspector asset={selectedAsset} clip={selectedClip} onUpdate={(changes) => selectedClipId && dispatch({ type: "update-clip", clipId: selectedClipId, changes })} />
+        {activeTool === "music-video" ? <MusicVideoStudio /> : <>
+          <ToolPanel activeTool={activeTool} assets={project.assets} {...mediaImport} selectedClip={selectedClip} onAddToTimeline={(asset) => addAssetToTrack(asset)} onCreateLayer={createLayer} onUpdateClip={(changes) => selectedClipId && dispatch({ type: "update-clip", clipId: selectedClipId, changes })} />
+          <PreviewCanvas asset={activeMediaAsset} clip={activeMediaClip} audioTracks={audioTracks} layers={visibleLayers} selectedClipId={selectedClipId} currentTime={currentTime} duration={duration} isPlaying={isPlaying} aspectRatio={project.aspectRatio} onPlayingChange={setIsPlaying} onTimeChange={(time) => setCurrentTime(Math.min(duration, Math.max(0, time)))} onSelectLayer={setSelectedClipId} onUpdateLayer={(clipId, changes) => dispatch({ type: "update-clip", clipId, changes })} />
+          <Inspector asset={selectedAsset} clip={selectedClip} onUpdate={(changes) => selectedClipId && dispatch({ type: "update-clip", clipId: selectedClipId, changes })} />
+        </>}
       </div>
-      <Timeline tracks={project.tracks} assets={project.assets} duration={duration} currentTime={currentTime} zoom={timelineZoom} selectedClipId={selectedClipId} rangeIn={rangeIn} rangeOut={rangeOut} onZoomChange={setTimelineZoom} onSeek={(time) => { setCurrentTime(Math.min(duration, Math.max(0, time))); setIsPlaying(false); }} onSelectClip={setSelectedClipId} onDeleteSelected={deleteSelectedClip} onSetRangeIn={() => setRangeIn(currentTime)} onSetRangeOut={() => setRangeOut(currentTime)} onRippleDelete={removeMarkedRange} onTrimClip={(clipId, changes) => dispatch({ type: "update-clip", clipId, changes })} onDropAsset={(assetId, trackId, time) => { const asset = project.assets.find((item) => item.id === assetId); const track = project.tracks.find((item) => item.id === trackId); if (asset && track) addAssetToTrack(asset, track, time); }} />
+      {activeTool !== "music-video" && <Timeline tracks={project.tracks} assets={project.assets} duration={duration} currentTime={currentTime} zoom={timelineZoom} selectedClipId={selectedClipId} rangeIn={rangeIn} rangeOut={rangeOut} onZoomChange={setTimelineZoom} onSeek={(time) => { setCurrentTime(Math.min(duration, Math.max(0, time))); setIsPlaying(false); }} onSelectClip={setSelectedClipId} onDeleteSelected={deleteSelectedClip} onSetRangeIn={() => setRangeIn(currentTime)} onSetRangeOut={() => setRangeOut(currentTime)} onRippleDelete={removeMarkedRange} onTrimClip={(clipId, changes) => dispatch({ type: "update-clip", clipId, changes })} onDropAsset={(assetId, trackId, time) => { const asset = project.assets.find((item) => item.id === assetId); const track = project.tracks.find((item) => item.id === trackId); if (asset && track) addAssetToTrack(asset, track, time); }} />}
     </main>
   );
 }

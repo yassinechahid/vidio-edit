@@ -1,9 +1,10 @@
 "use client";
 
-import { Captions, Circle, Clapperboard, Image, Layers3, Music2, SlidersHorizontal, Sparkles, Sticker, Type, WandSparkles } from "lucide-react";
+import { AudioWaveform, Captions, Circle, Clapperboard, Image, Layers3, Music2, SlidersHorizontal, Sparkles, Sticker, Type, WandSparkles } from "lucide-react";
 
 export const tools = [
   { id: "media", label: "Media", icon: Image }, { id: "audio", label: "Audio", icon: Music2 },
+  { id: "music-video", label: "Music video", icon: AudioWaveform },
   { id: "text", label: "Text", icon: Type }, { id: "captions", label: "Captions", icon: Captions },
   { id: "stickers", label: "Stickers", icon: Sticker }, { id: "shapes", label: "Shapes", icon: Circle },
   { id: "transitions", label: "Transitions", icon: Clapperboard }, { id: "effects", label: "Effects", icon: Sparkles },
@@ -24,4 +25,3 @@ export function ToolSidebar({ active, onChange }: { active: ToolId; onChange: (t
     </nav>
   );
 }
-
