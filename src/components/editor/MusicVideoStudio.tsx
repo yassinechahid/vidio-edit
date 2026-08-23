@@ -35,7 +35,7 @@ const TEMPLATES = [
     background: ["#02040b", "#081329", "#160d2c"],
     accent: "#9cb5ff",
     secondary: "#d6b8ff",
-    backgroundImage: "/assets/music-visualizer/ngc-5335.jpg",
+    backgroundImage: "/assets/music-visualizer/ngc-5335-4k.jpg",
     position: [0.5, 0.48],
     filter: "brightness(.68) contrast(1.12) saturate(.88)",
     credit: "NASA / ESA / STScI",
@@ -43,11 +43,11 @@ const TEMPLATES = [
   {
     id: "blue-hour",
     label: "Blue Hour",
-    note: "Webb + Hubble",
+    note: "Webb Arp 142",
     background: ["#02050a", "#061b34", "#0a3150"],
     accent: "#7cd4ff",
     secondary: "#d6f3ff",
-    backgroundImage: "/assets/music-visualizer/galaxy-pair.png",
+    backgroundImage: "/assets/music-visualizer/arp-142-4k.jpg",
     position: [0.68, 0.48],
     filter: "brightness(.56) contrast(1.16) saturate(.72) hue-rotate(12deg)",
     credit: "NASA / ESA / CSA / STScI",
@@ -59,7 +59,7 @@ const TEMPLATES = [
     background: ["#010807", "#06231d", "#07182d"],
     accent: "#79efc5",
     secondary: "#85d7ff",
-    backgroundImage: "/assets/music-visualizer/ngc-3603.png",
+    backgroundImage: "/assets/music-visualizer/ngc-3603-clean-4k.jpg",
     position: [0.52, 0.46],
     filter: "brightness(.62) contrast(1.13) saturate(.78) hue-rotate(22deg)",
     credit: "NASA / ESA / STScI",
@@ -71,7 +71,7 @@ const TEMPLATES = [
     background: ["#09030a", "#2a0b25", "#130d2d"],
     accent: "#ff9bd3",
     secondary: "#e0c2ff",
-    backgroundImage: "/assets/music-visualizer/orion.jpg",
+    backgroundImage: "/assets/music-visualizer/orion-4k.jpg",
     position: [0.38, 0.52],
     filter: "brightness(.58) contrast(1.13) saturate(.82)",
     credit: "NASA / ESA / STScI",
@@ -83,7 +83,7 @@ const TEMPLATES = [
     background: ["#030405", "#12151a", "#080b11"],
     accent: "#f1f4f7",
     secondary: "#aeb8c5",
-    backgroundImage: "/assets/music-visualizer/ngc-5335.jpg",
+    backgroundImage: "/assets/music-visualizer/ngc-5335-4k.jpg",
     position: [0.5, 0.5],
     filter: "grayscale(1) brightness(.6) contrast(1.2)",
     credit: "NASA / ESA / STScI",
@@ -95,7 +95,7 @@ const TEMPLATES = [
     background: ["#04020a", "#170c30", "#0a1730"],
     accent: "#c4a9ff",
     secondary: "#8be5ff",
-    backgroundImage: "/assets/music-visualizer/orion.jpg",
+    backgroundImage: "/assets/music-visualizer/orion-4k.jpg",
     position: [0.72, 0.44],
     filter: "brightness(.5) contrast(1.2) saturate(.7) hue-rotate(26deg)",
     credit: "NASA / ESA / STScI",
@@ -103,11 +103,11 @@ const TEMPLATES = [
   {
     id: "red-dwarf",
     label: "Red Dwarf",
-    note: "Interacting galaxies",
+    note: "Webb Arp 142",
     background: ["#080302", "#2c0d0b", "#180817"],
     accent: "#ffab82",
     secondary: "#ffe0a8",
-    backgroundImage: "/assets/music-visualizer/galaxy-pair.png",
+    backgroundImage: "/assets/music-visualizer/arp-142-4k.jpg",
     position: [0.47, 0.52],
     filter: "brightness(.62) contrast(1.12) saturate(.9)",
     credit: "NASA / ESA / CSA / STScI",
@@ -119,7 +119,7 @@ const TEMPLATES = [
     background: ["#01030a", "#071126", "#020817"],
     accent: "#f4f7ff",
     secondary: "#8299ff",
-    backgroundImage: "/assets/music-visualizer/ngc-5335.jpg",
+    backgroundImage: "/assets/music-visualizer/ngc-5335-4k.jpg",
     position: [0.5, 0.38],
     filter: "brightness(.48) contrast(1.22) saturate(.72) hue-rotate(8deg)",
     credit: "NASA / ESA / STScI",
@@ -131,7 +131,7 @@ const TEMPLATES = [
     background: ["#010509", "#03223a", "#071431"],
     accent: "#6eeaf0",
     secondary: "#8ca6ff",
-    backgroundImage: "/assets/music-visualizer/ngc-3603.png",
+    backgroundImage: "/assets/music-visualizer/ngc-3603-clean-4k.jpg",
     position: [0.34, 0.5],
     filter: "brightness(.52) contrast(1.16) saturate(.66) hue-rotate(34deg)",
     credit: "NASA / ESA / STScI",
@@ -143,7 +143,7 @@ const TEMPLATES = [
     background: ["#060503", "#211a0d", "#11101b"],
     accent: "#f3d28b",
     secondary: "#d2c7ff",
-    backgroundImage: "/assets/music-visualizer/orion.jpg",
+    backgroundImage: "/assets/music-visualizer/orion-4k.jpg",
     position: [0.5, 0.56],
     filter: "brightness(.58) contrast(1.12) saturate(.55) sepia(.18)",
     credit: "NASA / ESA / STScI",
@@ -368,6 +368,10 @@ export function MusicVideoStudio() {
       alpha: false,
     });
     if (!backgroundContext) return;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    backgroundContext.imageSmoothingEnabled = true;
+    backgroundContext.imageSmoothingQuality = "high";
     const backgroundImage = new Image();
     let imageReady = false;
     let cancelled = false;
@@ -915,10 +919,12 @@ export function MusicVideoStudio() {
     const previousPlaybackRate = audio.playbackRate;
     const previousPreservesPitch = audio.preservesPitch;
     const captureSpeed = 1;
-    const captureFrameRate = 30;
+    const captureFrameRate = aspectRatio === "9:16" && exportQuality === "hd" ? 24 : 30;
     let canvasStream: MediaStream | null = null;
     let recorder: MediaRecorder | null = null;
     let progressTimer: number | null = null;
+    let captureFrameTimer: number | null = null;
+    let manualFrameTrack: (MediaStreamTrack & { requestFrame?: () => void }) | null = null;
     let wakeLock: { release: () => Promise<void> } | null = null;
     try {
       setError(null);
@@ -931,7 +937,17 @@ export function MusicVideoStudio() {
       audio.currentTime = 0;
       audio.playbackRate = captureSpeed;
       audio.preservesPitch = false;
-      canvasStream = canvas.captureStream(captureFrameRate);
+      const manualStream = canvas.captureStream(0);
+      const candidateTrack = manualStream.getVideoTracks()[0] as
+        | (MediaStreamTrack & { requestFrame?: () => void })
+        | undefined;
+      if (candidateTrack && typeof candidateTrack.requestFrame === "function") {
+        canvasStream = manualStream;
+        manualFrameTrack = candidateTrack;
+      } else {
+        manualStream.getTracks().forEach((track) => track.stop());
+        canvasStream = canvas.captureStream(captureFrameRate);
+      }
       const mimeType = [
         "video/webm;codecs=vp9",
         "video/webm;codecs=vp8",
@@ -958,6 +974,13 @@ export function MusicVideoStudio() {
         audio.addEventListener("error", () => reject(new Error("The audio stopped during export.")), { once: true });
       });
       recorder.start(500);
+      if (manualFrameTrack?.requestFrame) {
+        manualFrameTrack.requestFrame();
+        captureFrameTimer = window.setInterval(
+          () => manualFrameTrack?.requestFrame?.(),
+          Math.round(1000 / captureFrameRate),
+        );
+      }
       const wakeLockApi = (navigator as Navigator & {
         wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> };
       }).wakeLock;
@@ -1030,6 +1053,7 @@ export function MusicVideoStudio() {
       setError(exportError instanceof Error ? exportError.message : "The matching video export failed.");
     } finally {
       if (progressTimer !== null) window.clearInterval(progressTimer);
+      if (captureFrameTimer !== null) window.clearInterval(captureFrameTimer);
       if (recorder?.state === "recording") recorder.stop();
       canvasStream?.getTracks().forEach((track) => track.stop());
       if (wakeLock) void wakeLock.release();

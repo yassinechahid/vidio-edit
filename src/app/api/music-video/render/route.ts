@@ -32,16 +32,16 @@ const OUTPUTS = {
 } as const;
 
 const TEMPLATES = {
-  andromeda: { image: "ngc-5335.jpg", accent: "9cb5ff", secondary: "d6b8ff", credit: "NASA / ESA / STScI" },
-  "blue-hour": { image: "galaxy-pair.png", accent: "7cd4ff", secondary: "d6f3ff", credit: "NASA / ESA / CSA / STScI" },
-  aurora: { image: "ngc-3603.png", accent: "79efc5", secondary: "85d7ff", credit: "NASA / ESA / STScI" },
-  "cosmic-rose": { image: "orion.jpg", accent: "ff9bd3", secondary: "e0c2ff", credit: "NASA / ESA / STScI" },
-  lunar: { image: "ngc-5335.jpg", accent: "f1f4f7", secondary: "aeb8c5", credit: "NASA / ESA / STScI" },
-  "violet-void": { image: "orion.jpg", accent: "c4a9ff", secondary: "8be5ff", credit: "NASA / ESA / STScI" },
-  "red-dwarf": { image: "galaxy-pair.png", accent: "ffab82", secondary: "ffe0a8", credit: "NASA / ESA / CSA / STScI" },
-  midnight: { image: "ngc-5335.jpg", accent: "f4f7ff", secondary: "8299ff", credit: "NASA / ESA / STScI" },
-  neptune: { image: "ngc-3603.png", accent: "6eeaf0", secondary: "8ca6ff", credit: "NASA / ESA / STScI" },
-  "solar-veil": { image: "orion.jpg", accent: "f3d28b", secondary: "d2c7ff", credit: "NASA / ESA / STScI" },
+  andromeda: { image: "ngc-5335-4k.jpg", accent: "9cb5ff", secondary: "d6b8ff", credit: "NASA / ESA / STScI" },
+  "blue-hour": { image: "arp-142-4k.jpg", accent: "7cd4ff", secondary: "d6f3ff", credit: "NASA / ESA / CSA / STScI" },
+  aurora: { image: "ngc-3603-clean-4k.jpg", accent: "79efc5", secondary: "85d7ff", credit: "NASA / ESA / STScI" },
+  "cosmic-rose": { image: "orion-4k.jpg", accent: "ff9bd3", secondary: "e0c2ff", credit: "NASA / ESA / STScI" },
+  lunar: { image: "ngc-5335-4k.jpg", accent: "f1f4f7", secondary: "aeb8c5", credit: "NASA / ESA / STScI" },
+  "violet-void": { image: "orion-4k.jpg", accent: "c4a9ff", secondary: "8be5ff", credit: "NASA / ESA / STScI" },
+  "red-dwarf": { image: "arp-142-4k.jpg", accent: "ffab82", secondary: "ffe0a8", credit: "NASA / ESA / CSA / STScI" },
+  midnight: { image: "ngc-5335-4k.jpg", accent: "f4f7ff", secondary: "8299ff", credit: "NASA / ESA / STScI" },
+  neptune: { image: "ngc-3603-clean-4k.jpg", accent: "6eeaf0", secondary: "8ca6ff", credit: "NASA / ESA / STScI" },
+  "solar-veil": { image: "orion-4k.jpg", accent: "f3d28b", secondary: "d2c7ff", credit: "NASA / ESA / STScI" },
 } as const;
 
 type ExportQuality = keyof typeof OUTPUTS;
@@ -120,7 +120,7 @@ async function prepareBackground(templateId: TemplateId, aspectRatio: AspectRati
   const existing = backgroundJobs.get(cacheKey);
   if (existing) return existing;
   const preparation = (async () => {
-    const cacheDirectory = path.join(tmpdir(), "framecraft-music-backgrounds-v2");
+    const cacheDirectory = path.join(tmpdir(), "framecraft-music-backgrounds-v3");
     await mkdir(cacheDirectory, { recursive: true });
     const cachedPath = path.join(cacheDirectory, `${cacheKey}.jpg`);
     if (!existsSync(cachedPath)) {
