@@ -12,6 +12,7 @@
     "@material-tailwind/react": "^2.1.10",
     "@tailwindcss/typography": "^0.5.16",
     "appwrite": "^22.0.0",
+    "ffmpeg-static": "^5.3.0",
     "framer-motion": "^12.23.24",
     "i18next": "^25.6.2",
     "i18next-browser-languagedetector": "^8.2.0",

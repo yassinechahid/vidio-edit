@@ -152,8 +152,41 @@ const TEMPLATES = [
 
 type AspectRatio = keyof typeof ASPECT_RATIOS;
 type TemplateId = (typeof TEMPLATES)[number]["id"];
+const EXPORT_QUALITY_OPTIONS = [
+  { id: "sd", label: "SD", note: "480p · 30 FPS", fileLabel: "480p" },
+  { id: "fast", label: "HD", note: "720p · 30 FPS", fileLabel: "720p" },
+  { id: "hd", label: "Full HD", note: "1080p · 30 FPS", fileLabel: "1080p" },
+] as const;
+
+type ExportQuality = (typeof EXPORT_QUALITY_OPTIONS)[number]["id"];
 type ExportState = "idle" | "rendering" | "ready" | "downloaded" | "error";
 type LocalSaveState = "restoring" | "saving" | "saved" | "error";
+type ExportPhase = "capturing" | "finalizing" | null;
+
+const EXPORT_DIMENSIONS: Record<ExportQuality, Record<AspectRatio, { width: number; height: number }>> = {
+  sd: {
+    "16:9": { width: 854, height: 480 },
+    "9:16": { width: 480, height: 854 },
+    "1:1": { width: 480, height: 480 },
+    "4:5": { width: 480, height: 600 },
+  },
+  fast: {
+    "16:9": { width: 1280, height: 720 },
+    "9:16": { width: 720, height: 1280 },
+    "1:1": { width: 720, height: 720 },
+    "4:5": { width: 720, height: 900 },
+  },
+  hd: {
+    "16:9": { width: 1920, height: 1080 },
+    "9:16": { width: 1080, height: 1920 },
+    "1:1": { width: 1080, height: 1080 },
+    "4:5": { width: 1080, height: 1350 },
+  },
+};
+
+function isExportQuality(value: string): value is ExportQuality {
+  return EXPORT_QUALITY_OPTIONS.some((quality) => quality.id === value);
+}
 
 function withAlpha(hex: string, alpha: number) {
   const value = hex.replace("#", "");
@@ -185,6 +218,7 @@ export function MusicVideoStudio() {
     useRef<MediaStreamAudioDestinationNode | null>(null);
   const playbackGainRef = useRef<GainNode | null>(null);
   const renderedVideoRef = useRef<Blob | null>(null);
+  const audioBlobRef = useRef<Blob | null>(null);
   const volumeRef = useRef(0.85);
   const restoredTimeRef = useRef<number | null>(null);
 
@@ -196,8 +230,11 @@ export function MusicVideoStudio() {
   const [volume, setVolume] = useState(0.85);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [templateId, setTemplateId] = useState<TemplateId>("andromeda");
+  const [exportQuality, setExportQuality] = useState<ExportQuality>("fast");
   const [backgroundReady, setBackgroundReady] = useState(false);
   const [exportState, setExportState] = useState<ExportState>("idle");
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportPhase, setExportPhase] = useState<ExportPhase>(null);
   const [error, setError] = useState<string | null>(null);
   const [localSaveState, setLocalSaveState] =
     useState<LocalSaveState>("restoring");
@@ -253,6 +290,8 @@ export function MusicVideoStudio() {
           setAspectRatio(settings.aspectRatio as AspectRatio);
         if (TEMPLATES.some((template) => template.id === settings.templateId))
           setTemplateId(settings.templateId as TemplateId);
+        if (isExportQuality(settings.exportQuality))
+          setExportQuality(settings.exportQuality);
         const restoredVolume = Math.min(1, Math.max(0, settings.volume));
         setVolume(restoredVolume);
         volumeRef.current = restoredVolume;
@@ -263,6 +302,7 @@ export function MusicVideoStudio() {
         if (!cancelled && blob && settings?.fileName) {
           const url = URL.createObjectURL(blob);
           objectUrlRef.current = url;
+          audioBlobRef.current = blob;
           setAudioUrl(url);
           setFileName(settings.fileName);
         }
@@ -286,18 +326,21 @@ export function MusicVideoStudio() {
         fileName,
         aspectRatio,
         templateId,
+        exportQuality,
         volume,
         currentTime,
       });
     } catch {
       setLocalSaveState("error");
     }
-  }, [aspectRatio, currentTime, fileName, restoreComplete, templateId, volume]);
+  }, [aspectRatio, currentTime, exportQuality, fileName, restoreComplete, templateId, volume]);
 
   useEffect(() => {
     renderedVideoRef.current = null;
+    setExportProgress(0);
+    setExportPhase(null);
     setExportState((state) => (state === "rendering" ? state : "idle"));
-  }, [aspectRatio, audioUrl, templateId]);
+  }, [aspectRatio, audioUrl, exportQuality, templateId]);
 
   useEffect(() => {
     volumeRef.current = volume;
@@ -307,7 +350,7 @@ export function MusicVideoStudio() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const { width, height } = ASPECT_RATIOS[aspectRatio];
+    const { width, height } = EXPORT_DIMENSIONS[exportQuality][aspectRatio];
     const template =
       TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
     canvas.width = width;
@@ -435,8 +478,13 @@ export function MusicVideoStudio() {
         }
         const frameRms = Math.sqrt(frameSquaredAmplitude / timeData.length);
         const volumeResponse = Math.pow(volumeRef.current, 1.15);
-        const energyTarget =
-          Math.min(1, Math.max(0, (frameRms - 0.004) / 0.12)) * volumeResponse;
+        const audibleFloor = frameRms > 0.002
+          ? Math.min(0.12, 0.025 + frameRms * 0.7) * volumeResponse
+          : 0;
+        const energyTarget = Math.max(
+          audibleFloor,
+          Math.min(1, Math.max(0, (frameRms - 0.004) / 0.12)) * volumeResponse,
+        );
         const energySpeed = energyTarget > musicLevel ? 0.72 : 0.2;
         musicLevel += (energyTarget - musicLevel) * energySpeed;
         const cycleCount = aspectRatio === "9:16" ? 5 : 7;
@@ -497,13 +545,19 @@ export function MusicVideoStudio() {
               1,
               Math.max(0, (bandEnergy - vocalBed - 0.1) / 0.58),
             );
-            bandTarget = Math.pow(vocalPresence, 1.42) * volumeResponse;
+            bandTarget = Math.max(
+              Math.pow(vocalPresence, 1.42) * volumeResponse,
+              audibleFloor * 0.35,
+            );
           } else {
             const musicPresence = Math.min(
               1,
               Math.max(0, (bandEnergy - 0.045) / 0.76),
             );
-            bandTarget = Math.pow(musicPresence, 1.05) * volumeResponse * 0.9;
+            bandTarget = Math.max(
+              Math.pow(musicPresence, 1.05) * volumeResponse * 0.9,
+              audibleFloor * 0.65,
+            );
           }
           const bandSpeed = bandTarget > cycleEnergyLevels[cycle] ? 0.76 : 0.22;
           cycleEnergyLevels[cycle] +=
@@ -685,7 +739,7 @@ export function MusicVideoStudio() {
       if (animationFrameRef.current !== null)
         cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [aspectRatio, audioUrl, fileName, templateId]);
+  }, [aspectRatio, audioUrl, exportQuality, fileName, templateId]);
 
   const chooseAudio = async (file?: File) => {
     if (!file) return;
@@ -699,6 +753,7 @@ export function MusicVideoStudio() {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
+    audioBlobRef.current = file;
     restoredTimeRef.current = 0;
     setAudioUrl(url);
     setFileName(file.name);
@@ -714,6 +769,7 @@ export function MusicVideoStudio() {
         fileName: file.name,
         aspectRatio,
         templateId,
+        exportQuality,
         volume,
         currentTime: 0,
       });
@@ -742,7 +798,7 @@ export function MusicVideoStudio() {
     }
   };
 
-  const exportVideo = async () => {
+  const exportVideoInBrowser = async () => {
     const canvas = canvasRef.current;
     const audio = audioRef.current;
     if (
@@ -770,6 +826,7 @@ export function MusicVideoStudio() {
     const previousTime = audio.currentTime;
     try {
       setError(null);
+      setExportProgress(0);
       setExportState("rendering");
       const recordingDestination = await ensureAudioGraph();
       if (!recordingDestination)
@@ -814,9 +871,12 @@ export function MusicVideoStudio() {
       recorder.start(1000);
       await audio.play();
       await songFinished;
+      setExportProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
       recorder.stop();
       const video = await finished;
       renderedVideoRef.current = video;
+      setExportProgress(100);
       setExportState("ready");
       setIsPlaying(false);
     } catch (exportError) {
@@ -838,6 +898,152 @@ export function MusicVideoStudio() {
     }
   };
 
+  const exportVideo = async () => {
+    const audioBlob = audioBlobRef.current;
+    const audio = audioRef.current;
+    const canvas = canvasRef.current;
+    if (!audioBlob || !audioUrl || !audio || !canvas || !Number.isFinite(duration) || duration <= 0) {
+      setError("Choose a valid audio file before creating the video.");
+      return;
+    }
+    if (typeof MediaRecorder === "undefined" || typeof canvas.captureStream !== "function") {
+      setError("Exact preview export requires a current Chrome, Edge, or Firefox browser.");
+      setExportState("error");
+      return;
+    }
+    const previousTime = audio.currentTime;
+    const previousPlaybackRate = audio.playbackRate;
+    const previousPreservesPitch = audio.preservesPitch;
+    const captureSpeed = 1;
+    const captureFrameRate = 30;
+    let canvasStream: MediaStream | null = null;
+    let recorder: MediaRecorder | null = null;
+    let progressTimer: number | null = null;
+    let wakeLock: { release: () => Promise<void> } | null = null;
+    try {
+      setError(null);
+      setExportProgress(0);
+      setExportPhase("capturing");
+      setExportState("rendering");
+      await ensureAudioGraph();
+      if (playbackGainRef.current) playbackGainRef.current.gain.value = 0;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.playbackRate = captureSpeed;
+      audio.preservesPitch = false;
+      canvasStream = canvas.captureStream(captureFrameRate);
+      const mimeType = [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm",
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+      recorder = new MediaRecorder(
+        new MediaStream(canvasStream.getVideoTracks()),
+        {
+          ...(mimeType ? { mimeType } : {}),
+          videoBitsPerSecond: exportQuality === "hd" ? 30_000_000 : exportQuality === "fast" ? 18_000_000 : 10_000_000,
+        },
+      );
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      const recordingFinished = new Promise<Blob>((resolve, reject) => {
+        if (!recorder) return reject(new Error("The canvas recorder is unavailable."));
+        recorder.onerror = () => reject(new Error("The preview recorder stopped unexpectedly."));
+        recorder.onstop = () => resolve(new Blob(chunks, { type: recorder?.mimeType || "video/webm" }));
+      });
+      const songFinished = new Promise<void>((resolve, reject) => {
+        audio.addEventListener("ended", () => resolve(), { once: true });
+        audio.addEventListener("error", () => reject(new Error("The audio stopped during export.")), { once: true });
+      });
+      recorder.start(500);
+      const wakeLockApi = (navigator as Navigator & {
+        wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> };
+      }).wakeLock;
+      if (wakeLockApi) wakeLock = await wakeLockApi.request("screen").catch(() => null);
+      progressTimer = window.setInterval(() => {
+        const captureProgress = Math.min(1, audio.currentTime / duration);
+        setExportProgress(Math.min(64, Math.round(captureProgress * 64)));
+      }, 150);
+      await audio.play();
+      await songFinished;
+      setExportProgress(64);
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      recorder.stop();
+      const canvasRecording = await recordingFinished;
+      if (progressTimer !== null) {
+        window.clearInterval(progressTimer);
+        progressTimer = null;
+      }
+      if (!canvasRecording.size) throw new Error("The preview recorder returned an empty video.");
+      setExportProgress(65);
+      setExportPhase("finalizing");
+
+      const jobId = crypto.randomUUID();
+      const formData = new FormData();
+      formData.append("audio", audioBlob, fileName || "music.mp3");
+      formData.append("recording", canvasRecording, "preview.webm");
+      formData.append("aspectRatio", aspectRatio);
+      formData.append("templateId", templateId);
+      formData.append("quality", exportQuality);
+      formData.append("duration", String(duration));
+      formData.append("captureSpeed", String(captureSpeed));
+      formData.append("jobId", jobId);
+      formData.append("title", fileName.replace(/\.[^.]+$/, "") || "YOUR MUSIC");
+      let polling = true;
+      const pollProgress = async () => {
+        while (polling) {
+          try {
+            const statusResponse = await fetch(`/api/music-video/render?jobId=${encodeURIComponent(jobId)}`, { cache: "no-store" });
+            if (statusResponse.ok) {
+              const status = await statusResponse.json() as { progress?: number };
+              if (typeof status.progress === "number") {
+                setExportProgress(Math.min(99, Math.max(65, Math.round(65 + status.progress * 0.34))));
+              }
+            }
+          } catch { /* The render request remains authoritative. */ }
+          await new Promise((resolve) => window.setTimeout(resolve, 450));
+        }
+      };
+      const pollingPromise = pollProgress();
+      let response: Response | undefined;
+      try {
+        response = await fetch("/api/music-video/render", { method: "POST", body: formData });
+      } finally {
+        polling = false;
+        await pollingPromise;
+      }
+      if (!response?.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || "The fast video exporter is unavailable.");
+      }
+      const video = await response.blob();
+      if (!video.size) throw new Error("The fast exporter returned an empty video.");
+      renderedVideoRef.current = video;
+      setExportProgress(100);
+      setExportPhase(null);
+      setExportState("ready");
+    } catch (exportError) {
+      setExportPhase(null);
+      setExportState("error");
+      setError(exportError instanceof Error ? exportError.message : "The matching video export failed.");
+    } finally {
+      if (progressTimer !== null) window.clearInterval(progressTimer);
+      if (recorder?.state === "recording") recorder.stop();
+      canvasStream?.getTracks().forEach((track) => track.stop());
+      if (wakeLock) void wakeLock.release();
+      if (playbackGainRef.current) playbackGainRef.current.gain.value = 1;
+      audio.pause();
+      audio.playbackRate = previousPlaybackRate;
+      audio.preservesPitch = previousPreservesPitch;
+      const maximumTime = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - 0.05) : 0;
+      audio.currentTime = Math.min(previousTime, maximumTime);
+      setCurrentTime(audio.currentTime);
+      setIsPlaying(false);
+    }
+  };
+
   const downloadRenderedVideo = () => {
     const video = renderedVideoRef.current;
     if (!video) {
@@ -847,7 +1053,9 @@ export function MusicVideoStudio() {
     const downloadUrl = URL.createObjectURL(video);
     const link = document.createElement("a");
     link.href = downloadUrl;
-    link.download = `${safeBaseName(fileName)}-${aspectRatio.replace(":", "x")}.webm`;
+    const extension = video.type.includes("mp4") ? "mp4" : "webm";
+    const qualityLabel = EXPORT_QUALITY_OPTIONS.find((quality) => quality.id === exportQuality)?.fileLabel ?? "720p";
+    link.download = `${safeBaseName(fileName)}-${aspectRatio.replace(":", "x")}-${qualityLabel}.${extension}`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -967,11 +1175,29 @@ export function MusicVideoStudio() {
             </div>
           </fieldset>
 
+          <fieldset className="export-quality">
+            <legend>Export quality</legend>
+            <div className="export-quality-options">
+              {EXPORT_QUALITY_OPTIONS.map((quality) => (
+                <button
+                  type="button"
+                  key={quality.id}
+                  className={exportQuality === quality.id ? "active" : ""}
+                  onClick={() => setExportQuality(quality.id)}
+                  disabled={isRendering}
+                  aria-pressed={exportQuality === quality.id}>
+                  <strong>{quality.label}</strong>
+                  <small>{quality.note}</small>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <div className="download-video-panel">
             <div>
               <strong>Your video</strong>
               <small>
-                Full-resolution WebM · original audio · {aspectRatio}
+                {EXPORT_QUALITY_OPTIONS.find((quality) => quality.id === exportQuality)?.label} {EXPORT_QUALITY_OPTIONS.find((quality) => quality.id === exportQuality)?.fileLabel} MP4 · original audio · {aspectRatio}
               </small>
             </div>
             <button
@@ -990,25 +1216,44 @@ export function MusicVideoStudio() {
               )}
               <span>
                 {isRendering
-                  ? `Creating video — ${duration > 0 ? Math.min(100, Math.round((currentTime / duration) * 100)) : 0}%`
+                  ? `${exportPhase === "finalizing" ? "Finalizing MP4" : "Capturing visualizer"} — ${exportProgress}%`
                   : !backgroundReady
                     ? "Loading background…"
                     : exportState === "ready"
-                      ? "Download video (.WEBM)"
+                      ? "Download video (.MP4)"
                       : exportState === "downloaded"
                         ? "Download video again"
                         : "Create video"}
               </span>
             </button>
+            {isRendering && (
+              <div
+                className="fast-export-progress"
+                role="progressbar"
+                aria-label="Video creation progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={exportProgress}>
+                <span style={{ width: `${exportProgress}%` }} />
+              </div>
+            )}
           </div>
           <p className="render-note">
-            Create renders the synchronized video once in real time and without
-            speaker audio. Download then saves the finished file instantly.
+            True 1× capture keeps every visualizer reaction synchronized with
+            the song. Keep this page open until MP4 finalization reaches 100%.
           </p>
           {error && (
             <p className="music-video-error" role="alert">
               {error}
             </p>
+          )}
+          {exportState === "error" && audioUrl && (
+            <button
+              type="button"
+              className="music-export-fallback"
+              onClick={() => void exportVideoInBrowser()}>
+              Use slower browser creation instead
+            </button>
           )}
           {exportState === "ready" && !error && (
             <p className="music-video-success" role="status">
@@ -1047,8 +1292,7 @@ export function MusicVideoStudio() {
             )}
             {isRendering && (
               <div className="rendering-badge">
-                <AudioWaveform size={13} /> Creating video ·{" "}
-                {Math.min(100, Math.round((currentTime / duration) * 100))}%
+                <AudioWaveform size={13} /> {exportPhase === "finalizing" ? "Finalizing MP4" : "Capturing"} · {exportProgress}%
               </div>
             )}
           </div>

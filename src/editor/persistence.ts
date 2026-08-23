@@ -15,6 +15,7 @@ export type PersistedMusicVideoSettings = {
   fileName: string;
   aspectRatio: string;
   templateId: string;
+  exportQuality: string;
   volume: number;
   currentTime: number;
 };
@@ -74,6 +75,7 @@ export function loadMusicVideoSettings(): PersistedMusicVideoSettings | null {
       fileName: settings.fileName,
       aspectRatio: settings.aspectRatio,
       templateId: settings.templateId,
+      exportQuality: typeof settings.exportQuality === "string" ? settings.exportQuality : "fast",
       volume: typeof settings.volume === "number" ? settings.volume : 0.85,
       currentTime: typeof settings.currentTime === "number" ? settings.currentTime : 0,
     };
