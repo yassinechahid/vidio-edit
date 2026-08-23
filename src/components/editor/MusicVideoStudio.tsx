@@ -109,7 +109,9 @@ export function MusicVideoStudio() {
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) return;
     const frequencyData = new Uint8Array(512);
+    const timeData = new Uint8Array(1024);
     const spectrumLevels = new Float32Array(96);
+    const spectrumTargets = new Float32Array(96);
     const backgroundCanvas = document.createElement("canvas");
     backgroundCanvas.width = width;
     backgroundCanvas.height = height;
@@ -167,8 +169,13 @@ export function MusicVideoStudio() {
     const draw = () => {
       const analyser = analyserRef.current;
       const audio = audioRef.current;
-      if (analyser) analyser.getByteFrequencyData(frequencyData);
-      else frequencyData.fill(0);
+      if (analyser) {
+        analyser.getByteFrequencyData(frequencyData);
+        analyser.getByteTimeDomainData(timeData);
+      } else {
+        frequencyData.fill(0);
+        timeData.fill(128);
+      }
       context.drawImage(backgroundCanvas, 0, 0);
 
       const audioIsActive = Boolean(audio && !audio.paused && !audio.ended && audio.currentTime > 0);
@@ -187,14 +194,43 @@ export function MusicVideoStudio() {
         context.globalCompositeOperation = "screen";
         context.fillStyle = spectrumGradient;
         context.shadowBlur = 0;
+
+        let frameFloor = Number.POSITIVE_INFINITY;
+        let framePeak = 0;
         for (let index = 0; index < barCount; index += 1) {
           const sourceIndex = Math.min(frequencyData.length - 1, Math.floor((index / barCount) ** 1.65 * frequencyData.length * 0.72));
-          const rawLevel = Math.max(0, (frequencyData[sourceIndex] - 10) / 245);
-          const target = Math.min(1, Math.pow(rawLevel, 0.72) * 1.12);
+          const frequencyStart = Math.max(0, sourceIndex - 2);
+          const frequencyEnd = Math.min(frequencyData.length - 1, sourceIndex + 2);
+          let frequencyTotal = 0;
+          for (let frequencyIndex = frequencyStart; frequencyIndex <= frequencyEnd; frequencyIndex += 1) {
+            frequencyTotal += frequencyData[frequencyIndex];
+          }
+          const frequencyAverage = frequencyTotal / (frequencyEnd - frequencyStart + 1);
+          const frequencyLevel = Math.max(0, (frequencyAverage - 8) / 247);
+
+          const sampleStart = Math.floor((index / barCount) * timeData.length);
+          const sampleEnd = Math.max(sampleStart + 1, Math.floor(((index + 1) / barCount) * timeData.length));
+          let squaredAmplitude = 0;
+          for (let sampleIndex = sampleStart; sampleIndex < sampleEnd; sampleIndex += 1) {
+            const amplitude = (timeData[sampleIndex] - 128) / 128;
+            squaredAmplitude += amplitude * amplitude;
+          }
+          const waveformLevel = Math.sqrt(squaredAmplitude / (sampleEnd - sampleStart));
+          const rawLevel = waveformLevel * 0.78 + Math.pow(frequencyLevel, 0.82) * 0.52;
+          spectrumTargets[index] = rawLevel;
+          frameFloor = Math.min(frameFloor, rawLevel);
+          framePeak = Math.max(framePeak, rawLevel);
+        }
+
+        const frameRange = Math.max(0.035, framePeak - frameFloor);
+        const frameStrength = Math.min(1, framePeak * 1.7);
+        for (let index = 0; index < barCount; index += 1) {
+          const contrastedLevel = Math.max(0, (spectrumTargets[index] - frameFloor) / frameRange);
+          const target = Math.min(1, Math.pow(contrastedLevel, 1.28) * frameStrength);
           const speed = target > spectrumLevels[index] ? 0.82 : 0.28;
           spectrumLevels[index] += (target - spectrumLevels[index]) * speed;
-          const edgeFade = Math.sin((index + 0.5) / barCount * Math.PI) ** 0.22;
-          const barHeight = Math.max(height * 0.004, spectrumLevels[index] * maxHeight * edgeFade);
+          const edgeShape = 0.78 + Math.sin(((index + 0.5) / barCount) * Math.PI) * 0.22;
+          const barHeight = Math.max(height * 0.004, spectrumLevels[index] * maxHeight * edgeShape);
           const x = startX + index * (barWidth + gap);
           context.beginPath();
           context.roundRect(x, baseline - barHeight, barWidth, barHeight * 2, barWidth / 2);
@@ -202,6 +238,7 @@ export function MusicVideoStudio() {
         }
       } else {
         spectrumLevels.fill(0);
+        spectrumTargets.fill(0);
       }
 
       context.globalCompositeOperation = "source-over";
